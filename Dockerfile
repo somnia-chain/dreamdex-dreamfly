@@ -2,7 +2,7 @@
 # Node is copied in only for the perp and event contract sidecars (recorders, perp order executor); a spot-only
 # run never starts it.
 
-FROM node:20-bookworm-slim AS recorders
+FROM node:24-bookworm-slim AS recorders
 WORKDIR /app/perp
 COPY perp/package.json perp/package-lock.json ./
 RUN npm ci --omit=dev
