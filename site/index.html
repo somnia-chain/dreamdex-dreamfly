@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DreamFly: a fly trading on DreamDEX (paper)</title>
+<meta name="description" content="A fruit fly's learning circuit choosing a market-making strategy on DreamDEX. Paper trading, simulated fills.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='3' width='10' height='10' fill='%236e6eed'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;500;600;700&family=Silkscreen:wght@400;700&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* DreamDEX brand tokens (dreamdex-marketing) + the app's authored palette for the monitor */
+:root{
+  --bg-base:#070707; --white:#f5f5f5; --white-dim:rgba(245,245,245,.7); --mid:rgba(245,245,245,.45);
+  --accent:#6e6eed; --accent-light:#8a8aff; --accent-glow:#a3a3ff; --accent-soft:rgba(110,110,237,.25);
+  --up:#00fa89; --down:#ff5a7a;
+  --code:"Source Code Pro",ui-monospace,Menlo,monospace; --pix:"Silkscreen","Source Code Pro",monospace;
+  --halo:0 0 6px #000,0 0 14px rgba(0,0,0,.98),0 0 28px rgba(4,5,10,.9),0 0 48px rgba(4,5,10,.7);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg-base);color:var(--white);font:400 13px/1.4 var(--code);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+.app{position:relative;height:100vh;height:100dvh;min-height:560px;overflow:hidden;background:var(--bg-base)}
+
+/* ---- standard bg stack ---- */
+.bg{position:absolute;inset:0;pointer-events:none;z-index:0}
+.bg-grid{background-image:linear-gradient(rgba(110,110,237,.085) 1px,transparent 1px),linear-gradient(90deg,rgba(110,110,237,.085) 1px,transparent 1px);background-size:64px 64px}
+.bg-grid-fine{background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:8px 8px}
+.wash-l{right:auto;width:30vw;background:linear-gradient(to right,rgba(110,110,237,.06),transparent)}
+.wash-r{left:auto;width:30vw;background:linear-gradient(to left,rgba(110,110,237,.05),transparent)}
+.nebula{background:
+  radial-gradient(ellipse 60% 45% at 78% 22%,rgba(138,138,255,.20),transparent 70%),
+  radial-gradient(ellipse 50% 55% at 12% 78%,rgba(110,110,237,.20),transparent 70%),
+  radial-gradient(ellipse 40% 30% at 55% 100%,rgba(163,163,255,.14),transparent 70%)}
+.glow{position:absolute;width:40vw;height:40vw;filter:blur(48px);border-radius:50%}
+.g-tl{top:-12vw;left:-10vw;background:radial-gradient(circle,rgba(138,138,255,.22),rgba(110,110,237,.09) 40%,transparent 72%)}
+.g-br{bottom:-12vw;right:-10vw;background:radial-gradient(circle,rgba(163,163,255,.24),rgba(110,110,237,.1) 40%,transparent 72%)}
+.scan1{top:38%;bottom:auto;height:1px;opacity:.7;background:linear-gradient(to right,transparent,rgba(110,110,237,.32) 25%,rgba(110,110,237,.5) 50%,rgba(110,110,237,.32) 75%,transparent);box-shadow:0 0 32px rgba(110,110,237,.28)}
+.scan2{top:auto;bottom:28%;height:1px;opacity:.6;background:linear-gradient(to right,transparent,rgba(110,110,237,.16) 30%,rgba(110,110,237,.24) 50%,rgba(110,110,237,.16) 70%,transparent)}
+#mterm{display:none}
+#scene{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1}
+.crt{position:absolute;inset:0;pointer-events:none;z-index:8;opacity:.4;background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 2px,rgba(110,110,237,.06) 2px,rgba(110,110,237,.06) 3px)}
+.vig{position:absolute;inset:0;pointer-events:none;z-index:8;background:radial-gradient(ellipse at 50% 45%,transparent 45%,rgba(7,7,7,.5) 82%,rgba(7,7,7,.9) 100%)}
+.grain{position:absolute;inset:0;pointer-events:none;z-index:9;opacity:.055;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.flash{position:absolute;inset:0;pointer-events:none;z-index:7;opacity:0}
+.flash.pam{background:radial-gradient(ellipse at 40% 55%,rgba(0,250,137,.34),transparent 65%)}
+.flash.ppl1{background:radial-gradient(ellipse at 40% 55%,rgba(220,11,74,.36),transparent 65%)}
+.flash.go{animation:fl 1.6s ease-out}
+@keyframes fl{0%{opacity:1}100%{opacity:0}}
+
+/* ---- HUD chrome: white on black, hard edges, retro offset shadow ---- */
+.card{background:rgba(0,0,0,.86);border:1px solid rgba(245,245,245,.85);box-shadow:6px 6px 0 var(--accent-soft),6px 6px 0 1px rgba(110,110,237,.55);padding:12px 14px;z-index:5}
+.pix{font-family:var(--pix);font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--white)}
+.mut{color:var(--mid)}
+
+.top{position:absolute;left:0;right:0;top:0;z-index:5;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:20px 24px;pointer-events:none}
+.top>*{pointer-events:auto}
+.title h1{margin:0;font:700 44px/44px var(--code);letter-spacing:0;color:var(--white);text-shadow:var(--halo)}
+.title h1 b{color:var(--accent-light);font-weight:700}
+.title p{margin:8px 0 0;max-width:34ch;font:400 13px/1.35 var(--code);color:var(--white-dim);text-shadow:var(--halo)}
+.right{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.tabs{display:flex;flex-wrap:wrap;border:1px solid rgba(245,245,245,.85);background:#000;box-shadow:4px 4px 0 rgba(110,110,237,.55)}
+.tab{background:none;border:0;border-right:1px solid rgba(245,245,245,.3);padding:8px 14px;cursor:pointer;font:500 13px/1 var(--code);color:var(--mid)}
+.tab:last-child{border-right:0}
+.tab[aria-selected="true"]{background:var(--white);color:#000;font-weight:700}
+.tab:hover{color:var(--white)} .tab[aria-selected="true"]:hover{color:#000}
+.tab:focus-visible,.bv:focus-visible{outline:2px solid var(--accent-glow);outline-offset:2px}
+.badges{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.badge{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(245,245,245,.6);background:#000;padding:4px 9px;font:500 12px/1 var(--code)}
+.badge.paper{border-color:var(--accent);color:var(--accent-glow)}
+.badge.kill{border-color:#dc0b4a;color:var(--down)}
+.dot{width:8px;height:8px;background:var(--mid)} .dot.live{background:var(--up);box-shadow:0 0 8px var(--up)} .dot.stale{background:#ffb02e}
+.bv{cursor:pointer;border:1px solid rgba(245,245,245,.6);background:#000;padding:4px 9px;font:500 12px/1 var(--code);color:var(--white-dim);text-decoration:none}
+.bv:hover{color:var(--white);border-color:var(--white)}
+
+/* replay card, bottom-left */
+.replay{position:absolute;left:24px;bottom:44px;width:330px;transition:opacity .35s}
+.zoomed .replay,.zoomed .pipbox,.zoomed .title{opacity:0;pointer-events:none}  /* zoomed to the monitor: only the market is shown */
+.replay .hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.replay .big{display:flex;align-items:baseline;gap:8px;margin:6px 0 2px}
+.replay .big b{font:700 46px/1 var(--code);font-variant-numeric:tabular-nums}
+.replay .big span{font:500 11px/1.2 var(--pix);text-transform:uppercase;color:var(--accent-glow)}
+.replay .pct{font:400 12px/1 var(--code);color:var(--white-dim);margin-bottom:10px}
+canvas.raster{display:block;width:100%;height:112px;border:1px solid rgba(245,245,245,.35);background:#000}
+.scale{display:flex;justify-content:space-between;margin-top:4px;font:400 10.5px/1 var(--code);color:var(--mid)}
+.replay .ft{margin-top:10px;padding-top:8px;border-top:1px solid rgba(245,245,245,.25);font:500 11px/1.4 var(--code);color:var(--white-dim)}
+
+/* picture-in-picture + pool->strategy + learning trace, right */
+.pipbox{transition:opacity .35s;position:absolute;right:24px;bottom:44px;width:300px;display:flex;flex-direction:column;gap:14px;z-index:5}
+.pip{position:relative;height:250px;padding:0;overflow:hidden;background:#04060c}
+.pip canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.pip .lb{position:absolute;left:10px;top:8px;z-index:2;text-shadow:0 0 6px #000}
+.pip .lb2{position:absolute;left:10px;bottom:8px;z-index:2;font:400 10.5px/1.2 var(--code);color:var(--white-dim);text-shadow:0 0 6px #000,0 0 12px #000}
+.pip .ld{position:absolute;inset:0;display:grid;place-items:center;color:var(--mid);font-size:12px;background:#04060c;transition:opacity .6s;pointer-events:none;z-index:1}
+.pip .ld.done{opacity:0}
+/* boot splash: shown until the scene has drawn and the fly's state has answered */
+.boot{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:var(--bg-base);transition:opacity .6s}
+.boot.done{opacity:0;pointer-events:none}
+.boot .in{width:min(320px,80vw);text-align:center}
+.boot h2{margin:0 0 6px;font:700 28px/1 var(--pix);color:var(--white);letter-spacing:.04em}
+.boot p{margin:0 0 16px;color:var(--mid);font-size:12px}
+.boot .bar{height:3px;background:rgba(245,245,245,.12);overflow:hidden}
+.boot .bar i{display:block;height:100%;width:0;background:var(--accent-glow);box-shadow:0 0 10px var(--accent-glow);transition:width .3s}
+.boot .msg{margin-top:10px;color:var(--white-dim);font-size:11.5px;min-height:1.4em}
+@media (prefers-reduced-motion:reduce){.boot,.boot .bar i{transition:none}}
+.arms{display:grid;gap:5px;margin-top:8px}
+.arm{display:grid;grid-template-columns:10px 56px 1fr;gap:8px;align-items:center;font:500 12.5px/1 var(--code);color:var(--mid)}
+.arm .dot{width:8px;height:8px;background:rgba(245,245,245,.2)}
+.arm .bar{height:6px;background:rgba(245,245,245,.08);display:block}
+.arm .bar i{display:block;height:100%;background:rgba(245,245,245,.3);transition:width .5s}
+.arm.on{color:#000;background:var(--white);margin:0 -6px;padding:4px 6px;grid-template-columns:10px 56px 1fr}
+.arm.on .dot{background:var(--accent)} .arm.on .bar{background:rgba(0,0,0,.15)} .arm.on .bar i{background:var(--accent)}
+.pool-hd{display:flex;justify-content:space-between;align-items:baseline}
+canvas.trace{display:block;width:100%;height:46px;margin-top:8px;border-bottom:1px solid rgba(245,245,245,.2)}
+.tnote{margin-top:6px;font:400 11px/1.35 var(--code);color:var(--white-dim);min-height:2.7em}
+.dopa{font:700 11px/1 var(--pix);text-transform:uppercase;color:var(--mid)}
+.dopa.PAM{color:var(--up)} .dopa.PPL1{color:var(--down)}
+.dopa.go{animation:pulse 1.6s ease-out}
+@keyframes pulse{0%{transform:scale(1.5);text-shadow:0 0 16px currentColor}100%{transform:scale(1);text-shadow:none}}
+.foot{position:absolute;left:24px;right:24px;bottom:12px;z-index:5;font:400 11px/1.3 var(--code);color:var(--mid);text-shadow:var(--halo)}
+
+.phone-note{display:none}
+/* ---- phones: no fly, no brain; the header, the tabs and the market terminal, plus a note ---- */
+@media (max-width:700px){
+  .app{height:auto;min-height:0;overflow:visible;display:flex;flex-direction:column}
+  #scene,.replay,.pipbox,#zoom,a.bv{display:none}
+  #mterm{display:block;order:3;width:calc(100% - 32px);height:auto;margin:6px 16px 0;border:1px solid rgba(245,245,245,.85);box-shadow:6px 6px 0 rgba(110,110,237,.55);position:relative;z-index:5}
+  .phone-note{display:block;order:4;margin:14px 16px 0;padding:10px 12px;border:1px solid rgba(245,245,245,.3);font:400 12px/1.5 var(--code);color:var(--white-dim);position:relative;z-index:5}
+  .phone-note b{color:var(--accent-glow);font-weight:600}
+  .bg{position:fixed}
+  .top{position:relative;order:1;flex-direction:column;padding:16px 16px 4px;gap:12px}
+  .title h1{font-size:34px;line-height:34px}
+  .right{align-items:stretch;width:100%} .badges{justify-content:flex-start}
+  .tabs{width:100%} .tab{flex:1 1 auto;white-space:nowrap}
+  .replay{position:relative;order:4;left:auto;bottom:auto;width:auto;margin:14px 16px 0}
+  .pipbox{position:relative;order:5;right:auto;bottom:auto;width:auto;margin:20px 16px 0}
+  .pip{height:min(78vw,320px)}
+  .foot{position:relative;order:6;left:auto;right:auto;bottom:auto;padding:18px 16px 24px}
+  .crt,.vig,.grain{position:fixed}
+}
+/* ---- tablets: the scene full width on top, the replay and brain panels in flow below it ---- */
+@media (min-width:701px) and (max-width:1024px){
+  .app{height:auto;min-height:0;overflow:visible;display:flex;flex-direction:column}
+  #scene{position:relative;inset:auto;order:2;height:min(70vw,620px);width:100%;flex:none}
+  .bg{position:fixed}
+  .top{position:relative;order:1;padding:16px 20px 6px}
+  .replay{position:relative;order:3;left:auto;bottom:auto;width:auto;margin:14px 20px 0}
+  .pipbox{position:relative;order:4;right:auto;bottom:auto;width:auto;margin:14px 20px 0;flex-direction:row;align-items:stretch}
+  .pipbox>.card{flex:1 1 0;min-width:0}
+  .pip{height:300px}
+  .foot{position:relative;order:6;left:auto;right:auto;bottom:auto;padding:18px 20px 24px}
+  .crt,.vig,.grain{position:fixed}
+}
+@media (min-width:861px) and (max-height:760px){
+  .title h1{font-size:34px;line-height:34px} .replay{width:300px} .replay .big b{font-size:36px} canvas.raster{height:84px}
+  .pip{height:200px} .pipbox{width:270px}
+}
+@media (prefers-reduced-motion:reduce){.flash.go,.dopa.go{animation:none}.arm .bar i{transition:none}}
+</style>
+</head>
+<body>
+<div class="boot" id="boot" role="status" aria-live="polite">
+  <div class="in">
+    <h2>DreamFly</h2>
+    <p>a fruit fly's learning circuit, trading on paper</p>
+    <div class="bar"><i id="boot-bar"></i></div>
+    <div class="msg" id="boot-msg">loading</div>
+  </div>
+</div>
+<div class="app" id="app">
+  <div class="bg nebula"></div>
+  <div class="bg wash-l"></div><div class="bg wash-r"></div>
+  <div class="bg"><div class="glow g-tl"></div><div class="glow g-br"></div></div>
+  <div class="bg scan1"></div><div class="bg scan2"></div>
+  <canvas id="scene" aria-label="A low-poly fruit fly at a desk in space, its front legs on a keyboard, watching a paper-trading terminal on a curved monitor"></canvas>
+  <canvas id="mterm" width="720" height="980" aria-label="Paper trading terminal (phone layout)"></canvas>
+  <p class="phone-note">Phone view: the market and the fly's trades only. For the <b>full display</b>, the fly at its desk, its brain and the neural replay, open this page on a tablet or desktop.</p>
+  <div class="flash" id="flash"></div>
+
+  <header class="top">
+    <div class="title">
+      <h1>DREAM<b>FLY</b></h1>
+      <p>a fruit fly's learning circuit trading on DreamDEX (paper)</p>
+    </div>
+    <div class="right">
+      <div class="tabs" id="tabs" role="tablist" aria-label="Market"></div>
+      <div class="badges">
+        <span class="badge"><span class="dot" id="dot"></span><span id="age">connecting</span></span>
+        <span class="badge paper" id="mode">paper</span>
+        <span class="badge kill" id="kill" hidden>kill switch on</span>
+        <button class="bv" id="zoom" type="button">zoom to monitor</button>
+        <a class="bv" href="brain.html">research view</a>
+      </div>
+    </div>
+  </header>
+
+  <aside class="card replay" aria-label="Neural replay of the latest decision">
+    <div class="hd"><span class="pix">Neural replay</span><span class="mut" id="last-dec">--:--:--</span></div>
+    <div class="tnote" id="sniff-age">waiting for the first sniff</div>
+    <div class="big"><b id="kc-n">0</b><span>Kenyon cells<br>fired</span></div>
+    <div class="pct" id="kc-pct">0.0% of 2,044</div>
+    <div class="pix" style="font-size:10px;margin-bottom:5px">Spike raster</div>
+    <canvas class="raster" id="raster" aria-label="Kenyon cells that fired, last 40 decisions, newest at the bottom"></canvas>
+    <div class="scale"><span>cell 0</span><span>2,044 cells wide, last 40 decisions</span><span>2,044</span></div>
+    <div class="ft">2,414 neurons &middot; 1.0M synapses &middot; Male CNS v1.0</div>
+  </aside>
+
+  <div class="pipbox">
+    <div class="card pip" aria-label="Fly brain, picture in picture">
+      <canvas id="pip-gl"></canvas>
+      <span class="lb pix">Fly brain</span>
+      <span class="lb2">Kenyon cells fire, the strategies score the pattern, dopamine tints</span>
+      <div class="ld" id="pip-loading">loading 2,414 neurons</div>
+    </div>
+    <div class="card">
+      <div class="pool-hd"><span class="pix">Pool &rarr; strategy</span><span class="pix" id="strat" style="color:var(--accent-glow)">-</span></div>
+      <div class="arms" id="arms"></div>
+      <div class="pool-hd" style="margin-top:14px"><span class="pix" style="font-size:10px">Learning trace</span><span class="dopa" id="dopa">no dopamine</span></div>
+      <canvas class="trace" id="trace" aria-label="Weights moved per episode; green bars reward, red bars punishment"></canvas>
+      <div class="tnote" id="trace-note">waiting for the first episode</div>
+    </div>
+  </div>
+
+  <div class="foot">Male CNS v1.0 (Janelia/Google, CC-BY) &middot; paper trading, simulated fills &middot; not investment advice</div>
+  <div class="crt"></div><div class="vig"></div><div class="grain"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="brain-core.js"></script>
+<script src="dreamdex-logo.js"></script>
+<script src="terminal.js"></script>
+<script src="scene.js"></script>
+</body>
+</html>
