@@ -1,0 +1,18 @@
+{
+  "name": "flybot-perp-recorder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "DreamFly perp sidecars: the read-only market recorder and the order executor (test networks)",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "record": "node recorder.mjs",
+    "execute": "node executor.mjs"
+  },
+  "dependencies": {
+    "@somnia-chain/markets-sdk": "^0.32.1",
+    "viem": "^2.21.0"
+  }
+}
