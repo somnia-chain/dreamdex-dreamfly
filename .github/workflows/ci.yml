@@ -1,0 +1,37 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Tests
+        run: python -m pytest -q
+      - name: Settings guards and CLI load
+        run: |
+          python -m flybot.cli --help
+          DRY_RUN=false python -c "from flybot.live.settings import Settings, SettingsError
+          try:
+              Settings.from_env()
+          except SettingsError as e:
+              print('refused as expected:', e)
+          else:
+              raise SystemExit('a live run without a key must be refused')"
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the container
+        run: docker build -t dreamfly .

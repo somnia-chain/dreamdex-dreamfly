@@ -1,0 +1,65 @@
+{
+  "WETH:USDso": {
+    "maker": {
+      "spread_bps": 40,
+      "skew_bps": 5,
+      "clip_frac": 0.25
+    },
+    "grid": {
+      "step_bps": 320,
+      "levels": 2,
+      "clip_frac": 0.2
+    },
+    "trend": {
+      "lookback": 15,
+      "threshold": 0.012
+    }
+  },
+  "WBTC:USDso": {
+    "maker": {
+      "spread_bps": 40,
+      "skew_bps": 20,
+      "clip_frac": 0.25
+    },
+    "grid": {
+      "step_bps": 320,
+      "levels": 2,
+      "clip_frac": 0.2
+    },
+    "trend": {
+      "lookback": 30,
+      "threshold": 0.006
+    }
+  },
+  "SOMI:USDso": {
+    "maker": {
+      "spread_bps": 160,
+      "skew_bps": 5,
+      "clip_frac": 0.25
+    },
+    "grid": {
+      "step_bps": 500,
+      "levels": 2,
+      "clip_frac": 0.2
+    },
+    "trend": {
+      "lookback": 15,
+      "threshold": 0.012
+    }
+  },
+  "USDC.e:USDso": {
+    "arms": ["maker"],
+    "slots": 1,
+    "slip_bps": 2.0,
+    "dense_candles": true,
+    "episode_min": 240,
+    "maker": {
+      "mode": "inside",
+      "tick": 0.0001,
+      "improve_ticks": 1,
+      "trade_fills": true,
+      "stake": 250,
+      "clip_frac": 1.0
+    }
+  }
+}

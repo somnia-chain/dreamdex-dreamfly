@@ -1,0 +1,31 @@
+# --- secrets: never commit ---
+.env
+.env.*
+!.env.example
+!.env.railway
+*.key
+*.pem
+.wallet*.json
+
+# --- local working state ---
+context/
+state/
+film/
+# recorded and downloaded data stays local; the small derived circuit data is bundled
+/data/*
+!/data/mb/
+*.log
+*.jsonl
+
+# --- node / python ---
+node_modules/
+.venv/
+__pycache__/
+*.egg-info/
+*.py[cod]
+
+# --- os ---
+.DS_Store
+
+# --- tooling ---
+.playwright-mcp/

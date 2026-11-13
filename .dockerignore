@@ -1,0 +1,14 @@
+.git
+.venv
+.playwright-mcp
+context
+state
+data/*
+!data/mb
+docs
+tests
+**/__pycache__
+**/node_modules
+*.egg-info
+.env
+.env.*
